@@ -21,9 +21,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	_, err = l.Accept()
+	conn, err := l.Accept()
 	if err != nil {
 		fmt.Println("Error accepting connection: ", err.Error())
 		os.Exit(1)
+	}
+
+	var requestBuffer []byte
+	_, err = conn.Read(requestBuffer)
+	if err != nil {
+		fmt.Println("Cant read connections", err.Error())
+	}
+
+	writeBuffer := []byte("HTTP/1.1 200 OK\r\n\r\n")
+	_, err = conn.Write(writeBuffer)
+
+	if err != nil {
+		fmt.Println("Error writing data on conenction", err.Error())
 	}
 }

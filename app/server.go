@@ -31,6 +31,11 @@ func main() {
 
 }
 
+const (
+	Ok_RESPONSE        = "HTTP/1.1 200 OK"
+	NOT_FOUND_RESPONSE = "HTTP/1.1 404 Not Found"
+)
+
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 	message := readMessage(conn)
@@ -48,7 +53,7 @@ func handleConnection(conn net.Conn) {
 			"\r\n"+
 			"%s",
 			len(path)-6,
-			path[6:])
+			path[6:]) // path[5] is /
 		sendResponse(echoResponse, conn)
 	} else if strings.HasPrefix(path, "/user-agent") {
 		userAgentResponse := fmt.Sprintf("HTTP/1.1 200 OK \r\n"+
@@ -59,9 +64,33 @@ func handleConnection(conn net.Conn) {
 			len(message.Headers["User-Agent"]),
 			message.Headers["User-Agent"])
 		sendResponse(userAgentResponse, conn)
+	} else if strings.HasPrefix(path, "/files") {
+		var directoryToServe string
+		if len(os.Args) == 3 && os.Args[1] == "--directory" {
+			directoryToServe = os.Args[2]
+		}
+		fileName := path[6:]
+		fmt.Println("directoryToServe:", directoryToServe, "fileName:", fileName)
+		filePath := directoryToServe + fileName[1:]
+		fmt.Println("FilePath:", filePath)
+		sendFile(conn, filePath)
 	} else {
 		sendResponse(notFoundResponse, conn)
 	}
+}
+
+func sendFile(conn net.Conn, filePath string) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		fmt.Println("Error reading filePath:", filePath)
+		sendResponse(fmt.Sprintf("%s\r\n\r\n", NOT_FOUND_RESPONSE), conn)
+		return
+	}
+	response := fmt.Sprintf("%s\r\n", Ok_RESPONSE) +
+		"Content-Type: application/octet-stream\r\n" +
+		fmt.Sprintf("Content-Length: %v\r\n", len(data)) +
+		"\r\n" + string(data)
+	sendResponse(response, conn)
 }
 
 type Message struct {

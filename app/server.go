@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"os"
@@ -28,15 +29,38 @@ func main() {
 	}
 
 	var requestBuffer []byte
-	_, err = conn.Read(requestBuffer)
-	if err != nil {
-		fmt.Println("Cant read connections", err.Error())
+	//requestBuffer := make([]byte, 32)
+	//_, err = conn.Read(requestBuffer)
+	//if err != nil {
+	//	fmt.Println("Cant read connections", err.Error())
+	//}
+
+	fmt.Println("Hi There")
+
+	requestBuffer = make([]byte, 20) // read some data
+	conn.Read(requestBuffer)
+	firstSpaceIndx := bytes.IndexByte(requestBuffer, ' ')
+	requestBuffer = requestBuffer[firstSpaceIndx+1:]
+	secondSpaceIndx := bytes.IndexByte(requestBuffer, ' ')
+	path := string(requestBuffer[:secondSpaceIndx])
+
+	okResponse := "HTTP/1.1 200 OK\r\n\r\n"
+	notFoundResponse := "HTTP/1.1 404 Not Found\r\n\r\n"
+
+	if path == "/" {
+		sendResponse(okResponse, conn)
+	} else {
+		sendResponse(notFoundResponse, conn)
 	}
 
-	writeBuffer := []byte("HTTP/1.1 200 OK\r\n\r\n")
-	_, err = conn.Write(writeBuffer)
+}
+
+func sendResponse(response string, conn net.Conn) {
+	writeBuffer := []byte(response)
+	_, err := conn.Write(writeBuffer)
 
 	if err != nil {
-		fmt.Println("Error writing data on conenction", err.Error())
+		fmt.Println("Error writing data on connection", err.Error())
 	}
+	os.Exit(1)
 }

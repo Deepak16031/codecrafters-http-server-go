@@ -19,15 +19,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	conn, err := l.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("Error accepting connection: ", err.Error())
+			os.Exit(1)
+		}
+
+		go handleConnection(conn)
 	}
 
+}
+
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
 	message := readMessage(conn)
 	path := message.getPath()
-
 	okResponse := "HTTP/1.1 200 OK\r\n\r\n"
 	notFoundResponse := "HTTP/1.1 404 Not Found\r\n\r\n"
 
@@ -55,7 +62,6 @@ func main() {
 	} else {
 		sendResponse(notFoundResponse, conn)
 	}
-
 }
 
 type Message struct {
@@ -111,7 +117,6 @@ func sendResponse(response string, conn net.Conn) {
 	if err != nil {
 		fmt.Println("Error writing data on connection", err.Error())
 	}
-	os.Exit(1)
 }
 
 func (message *Message) getPath() string {

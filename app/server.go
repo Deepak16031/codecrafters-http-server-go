@@ -35,20 +35,27 @@ func main() {
 	//	fmt.Println("Cant read connections", err.Error())
 	//}
 
-	fmt.Println("Hi There")
-
-	requestBuffer = make([]byte, 20) // read some data
+	requestBuffer = make([]byte, 128) // read some data
 	conn.Read(requestBuffer)
 	firstSpaceIndx := bytes.IndexByte(requestBuffer, ' ')
 	requestBuffer = requestBuffer[firstSpaceIndx+1:]
 	secondSpaceIndx := bytes.IndexByte(requestBuffer, ' ')
-	path := string(requestBuffer[:secondSpaceIndx])
+	path := requestBuffer[:secondSpaceIndx]
 
 	okResponse := "HTTP/1.1 200 OK\r\n\r\n"
 	notFoundResponse := "HTTP/1.1 404 Not Found\r\n\r\n"
-
-	if path == "/" {
+	fmt.Println("path:", string(path))
+	if string(path) == "/" {
 		sendResponse(okResponse, conn)
+	} else if len(path) >= 5 && string(path[:5]) == "/echo" {
+		echoRespose := fmt.Sprintf("HTTP/1.1 200 OK \r\n"+
+			"Content-Type: text/plain\r\n"+
+			"Content-Length: %v\r\n"+
+			"\r\n"+
+			"%s",
+			len(path)-6,
+			path[6:])
+		sendResponse(echoRespose, conn)
 	} else {
 		sendResponse(notFoundResponse, conn)
 	}

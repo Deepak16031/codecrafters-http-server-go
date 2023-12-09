@@ -3,8 +3,10 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	// Uncomment this block to pass the first stage
 	// "net"
@@ -32,8 +34,11 @@ func main() {
 }
 
 const (
-	Ok_RESPONSE        = "HTTP/1.1 200 OK"
-	NOT_FOUND_RESPONSE = "HTTP/1.1 404 Not Found"
+	Ok_RESPONSE             = "HTTP/1.1 200 OK"
+	CREATED_RESPONSE        = "HTTP/1.1 201 CREATED"
+	NOT_FOUND_RESPONSE      = "HTTP/1.1 404 Not Found"
+	CONTENT_LENGTH          = "Content-Length"
+	CONTENT_TYPE_TEXT_PLAIN = "Content-Type: text/plain"
 )
 
 func handleConnection(conn net.Conn) {
@@ -43,7 +48,27 @@ func handleConnection(conn net.Conn) {
 	okResponse := "HTTP/1.1 200 OK\r\n\r\n"
 	notFoundResponse := "HTTP/1.1 404 Not Found\r\n\r\n"
 
-	fmt.Println("path:", string(path))
+	requestType := message.getRequestType()
+	if requestType == "POST" {
+		var directoryToServe string
+		if len(os.Args) == 3 && os.Args[1] == "--directory" {
+			directoryToServe = os.Args[2]
+		}
+		fileName := path[6:]
+		fmt.Println("directoryToServe:", directoryToServe, "fileName:", fileName)
+		filePath := directoryToServe + fileName
+		file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0777)
+		if err != nil {
+			fmt.Println("Error opening file:", filePath, "Error:", err.Error())
+		}
+		file.Write([]byte(message.Body))
+		createdResponse := fmt.Sprintf("%s\r\n\r\n", CREATED_RESPONSE)
+		sendResponse(createdResponse, conn)
+		return
+	} else if requestType != "GET" {
+		fmt.Println("Not Supported Request Type")
+		return
+	}
 	if path == "/" {
 		sendResponse(okResponse, conn)
 	} else if strings.HasPrefix(path, "/echo") {
@@ -123,6 +148,16 @@ func readMessage(conn net.Conn) Message {
 		message.Headers[key] = val
 	}
 	// body not parsed in this stage
+	if val, ok := message.Headers[CONTENT_LENGTH]; ok {
+		size, err := strconv.Atoi(val)
+		if err != nil {
+			fmt.Println("Cant convert string to int", err.Error())
+		}
+
+		bodyBuffer := make([]byte, size)
+		io.ReadFull(reader, bodyBuffer)
+		message.Body = string(bodyBuffer)
+	}
 	return message
 }
 
@@ -155,4 +190,10 @@ func (message *Message) getPath() string {
 	secondSpaceIndx := strings.IndexByte(statusLine, ' ')
 	path := statusLine[:secondSpaceIndx]
 	return path
+}
+func (message *Message) getRequestType() string {
+	statusLine := message.StatusLine
+	firstSpaceIndx := strings.IndexByte(statusLine, ' ')
+	requestType := message.StatusLine[:firstSpaceIndx]
+	return requestType
 }
